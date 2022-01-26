@@ -20,19 +20,30 @@ class MarlinCancelObject(Script):
     }"""
 
   def execute(self, data):
-    meshes=[]
+    meshes=[] # array to hold meshnames for indexing
+
     for index, layer in enumerate(data):
       lines = layer.split("\n")
       for lindex, line in enumerate(lines):
         if ";MESH:" in line:
           meshname = line[6:]
-          idx=-1
+          idx=-1 # default to non-object features that shouldn't be skipped
           if(meshname in meshes):
             idx=meshes.index(meshname)
           elif(meshname != "NONMESH"):
             meshes.append(meshname)
             idx=meshes.index(meshname)
-          gcode_to_add = "\n;Marlin Cancel Object support: \nM486 S%d" % idx
+          gcode_to_add = "\nM486 S%d ;Marlin Cancel Object support" % idx
           lines[lindex] = line + gcode_to_add
+      data[index] = "\n".join(lines)
+    
+    # second loop through to insert number of objects
+    for index, layer in enumerate(data):
+      lines = layer.split("\n")
+      for lindex, line in enumerate(lines):
+        if ";LAYER_COUNT:" in line:
+          gcode_to_add = "\nM486 T%d ;Marlin Cancel Object support" % len(meshes)
+          lines[lindex] = line + gcode_to_add
+          break
       data[index] = "\n".join(lines)
     return data
