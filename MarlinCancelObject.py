@@ -16,10 +16,19 @@ class MarlinCancelObject(Script):
       "key": "MarlinCancelObject",
       "metadata": {},
       "version": 2,
-      "settings": {}
+      "settings": {
+        "nzf":
+        {
+          "label": "Experimental z-hop fix",
+          "description": "Attempt to remove X & Y components from Z-hop travel moves at the start of NONMESH segments to avoid slow movements across the bed after cancelled objects. Experimental, (p)review G-code before printing.",
+          "type": "bool",
+          "default_value": false
+        }
+      }
     }"""
 
   def execute(self, data):
+    nonmesh_zhop_fix = self.getSettingValueByKey("nzf")
     meshes=[] # array to hold meshnames for indexing
 
     for index, layer in enumerate(data):
@@ -33,6 +42,18 @@ class MarlinCancelObject(Script):
           elif(meshname != "NONMESH"):
             meshes.append(meshname)
             idx=meshes.index(meshname)
+          else:
+            if(nonmesh_zhop_fix):
+              ol = lines[lindex+1]
+              nl = ol
+              if(ol[:2] == "G0" and " Z" in ol):
+                np=[]
+                for part in ol.split(" "):
+                  if(part[0] == "X" or part[0] == "Y"):
+                    continue
+                  np.append(part)
+                nl=" ".join(np)
+              lines[lindex+1]=nl + " ;Attempted Z-hop fix"            
           gcode_to_add = "\nM486 S%d ;Marlin Cancel Object support" % idx
           lines[lindex] = line + gcode_to_add
       data[index] = "\n".join(lines)
